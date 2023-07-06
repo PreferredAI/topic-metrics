@@ -7,7 +7,8 @@ For larger corpora, it is probably more efficient to compute counts once.
 Most of the codebase was refactored and lightly tested on python 3.10 (in theory it should work on >=3.6).
 Some functions were benchmarked for speed, using AMD EPYC 7502 @ 2.50GHz, using large Wikipedia graphs:
   1. 33 minutes to calculate 40K Wikipedia NPMI graphs from count graphs 
-  2. 80 topics evaluated on NPMI / second from count graphs 
+  2. 80 topics evaluated on NPMI / second from count graphs
+ 
 More found in docstrings.
 
 ---
