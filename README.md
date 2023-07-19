@@ -36,9 +36,7 @@ Speed: some attempts at computation efficiency.
 
 --- 
 ### Releasable Resources
-Count graphs of Wiki, Wiki-lemma.
-Due to some outstanding issues with our S3, the current best way is to grab the large files via a meetup at ACL.
-Hopefully, we can resolve the issues soon.
+[dropbox link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
 
 ---
 
