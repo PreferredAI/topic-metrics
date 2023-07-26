@@ -15,7 +15,7 @@ More found in docstrings.
 ### Goals
 Hackable: hopefully readable and extendable for **your own** use cases.
 
-Lightweight: only numpy and pandas dependences.
+Lightweight: only numpy and pandas dependencies.
 
 Speed: some attempts at computation efficiency.
 
@@ -36,7 +36,7 @@ Speed: some attempts at computation efficiency.
 
 --- 
 ### Releasable Resources
-[dropbox link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
+[Dropbox Link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
 
 ---
 [Anthology Link](https://aclanthology.org/2023.acl-long.776/)
