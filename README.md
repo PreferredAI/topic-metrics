@@ -38,6 +38,18 @@ Speed: some attempts at computation efficiency.
 ### Releasable Resources
 [Dropbox Link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
 
+count_graph indices are mapped to alphabetically-sorted vocabulary while vocab_count maps are sorted by vocab count.
+
+Example from Wiki's vocab-index:
+
+    ...
+    'addison': 724,
+    'addition': 725,
+    'additional': 726,
+    'additionally': 727,
+    'additions': 728,
+    ...
+    
 ---
 [Anthology Link](https://aclanthology.org/2023.acl-long.776/)
 
