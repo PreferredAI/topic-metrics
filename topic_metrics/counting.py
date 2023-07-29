@@ -153,7 +153,7 @@ def shortlist_vocab(vocab_count_location, auto=True, upper_threshold=None, lower
     vocab_count = {k: v for k, v in vocab_count.items()
                    if v < upper_threshold and v > lower_threshold}
 
-    return {vocab: _id for _id, vocab in enumerate(vocab_count)}
+    return vocab_count
 
 
 def count_windows_helper(f, directory, dest_single, dest_joint, window_size, vocab2id):
