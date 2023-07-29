@@ -218,7 +218,7 @@ def create_graph_with(score_func, co_occ, occ, smooth=True, shortlist=[]):
                   for s in shortlist}
     graph = {
         i: {j: score_func(co_occ[i][j] if j in co_occ[i] else 0,
-                          occ[i], occ[j], smooth)
+                          occ[i], occ[j], smooth=smooth)
             for j in co_occ.keys()}
         for i in co_occ.keys()
     }
