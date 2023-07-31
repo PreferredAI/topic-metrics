@@ -235,7 +235,7 @@ def count_windows_helper(f, directory, dest_single, dest_joint, window_size, voc
     pickle.dump(single_count, open(single_path, "wb"))
 
 
-def count_windows(directory, destination, window_size, vocab2id, num_processes=4):
+def count_windows(directory, destination, window_size, vocab2id, count_processes=4, load_processes=4):
     """ Pipeline for counting sliding windows in a directory (corpus)
     Parameters
     ----------
@@ -265,7 +265,7 @@ def count_windows(directory, destination, window_size, vocab2id, num_processes=4
 
     files = [f for f in os.listdir(directory) if f.endswith('.txt')]
 
-    with Pool(processes=num_processes) as pool:
+    with Pool(processes=count_processes) as pool:
         pool.map(partial(count_windows_helper,
                          directory=directory,
                          dest_single=dest_temp_single,
@@ -278,7 +278,7 @@ def count_windows(directory, destination, window_size, vocab2id, num_processes=4
     single_graph_paths = [f'{dest_temp_single}/{f}' for f in os.listdir(dest_temp_single)
                           if f.endswith('.pkl')]
 
-    with Pool(processes=num_processes) as pool:
+    with Pool(processes=load_processes) as pool:
         single_graph = reduce(aggregate_count,
                               pool.imap_unordered(
                                   load_graph, tqdm(single_graph_paths)),
@@ -290,7 +290,7 @@ def count_windows(directory, destination, window_size, vocab2id, num_processes=4
     joint_graph_paths = [f'{dest_temp_joint}/{f}' for f in os.listdir(dest_temp_joint)
                          if f.endswith('.pkl')]
 
-    with Pool(processes=num_processes) as pool:
+    with Pool(processes=load_processes) as pool:
         joint_graph = reduce(aggregate_count_nested,
                              pool.imap_unordered(
                                  load_graph, tqdm(joint_graph_paths)),
