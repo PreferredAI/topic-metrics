@@ -1,3 +1,4 @@
+import ctypes
 import os
 import math
 import numpy as np
@@ -9,7 +10,8 @@ from collections import defaultdict
 from .io_utils import *
 from functools import reduce, partial
 from itertools import combinations
-from multiprocessing import Pool
+from multiprocessing import Pool, Array
+from time import time
 from tqdm import tqdm
 
 
@@ -56,7 +58,7 @@ def count_histogram(directory, destination, num_processes):
     destination : str
         final destination directory
     num_processes : int
-        number of wokers in Pool
+        number of workers in Pool
 
     Return
     ------
@@ -105,7 +107,7 @@ def count_vocab(directory, destination, num_processes=1):
     destination : str
         final destination directory
     num_processes : int
-        number of wokers in Pool
+        number of workers in Pool
 
     Return
     ------
@@ -235,7 +237,26 @@ def count_windows_helper(f, directory, dest_single, dest_joint, window_size, voc
     pickle.dump(single_count, open(single_path, "wb"))
 
 
-def count_windows(directory, destination, window_size, vocab2id, count_processes=4, load_processes=4):
+def init(shared_array_base, size):
+    global shared_array
+    shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
+    shared_array = shared_array.reshape(size, size)
+    print('Array created', shared_array.shape)
+
+
+def load_and_increment(path):
+    start = time()
+    g = load_graph(path)
+    for k1, s in g.items():
+        inc = np.zeros(len(shared_array), dtype=np.int64)
+        for k2, v in s.items():
+            inc[k2] += v
+        shared_array[k1, :] += inc
+    print(f'{path} completed in {time()-start}s')
+
+
+def count_windows(directory, destination, window_size, vocab2id,
+                  count_processes=4, load_processes=4, clean_up=True):
     """ Pipeline for counting sliding windows in a directory (corpus)
     Parameters
     ----------
@@ -246,13 +267,23 @@ def count_windows(directory, destination, window_size, vocab2id, count_processes
         hyper-parameter for counting, sliding window size
     vocab2id : Dict[str, int]
         mapping of vocabulary word to its id
-    num_processes : int
-        number of wokers in Pool
+    count_processes : int
+        number of workers in Pool to generate count graphs
+    load_processes : int
+        number of workers in Pool to load joint-count graphs for aggregation
+    clean_up : bool
+        set to True to delete temporary files
 
     Return
     ------
     Save outputs to respective locations
+
+    Note
+    ----
+    multiprocessing reference:
+    https://stackoverflow.com/questions/5549190/
     """
+    inittime = time()
     destination = os.path.join(destination, str(window_size))
     dest_temp_single = destination + '_single_temp'
     dest_temp_joint = destination + '_joint_temp'
@@ -273,37 +304,43 @@ def count_windows(directory, destination, window_size, vocab2id, count_processes
                          window_size=window_size, vocab2id=vocab2id),
                  tqdm(files))
 
-    print('pre-counting completed, post-processing...')
+    print(f'counting completed, {time()-inittime} seconds, aggregate...')
+    sec_time = time()
 
     single_graph_paths = [f'{dest_temp_single}/{f}' for f in os.listdir(dest_temp_single)
                           if f.endswith('.pkl')]
 
-    with Pool(processes=load_processes) as pool:
+    with Pool(processes=count_processes) as pool:
         single_graph = reduce(aggregate_count,
                               pool.imap_unordered(
                                   load_graph, tqdm(single_graph_paths)),
                               defaultdict(int))
     pickle.dump(single_graph, open(f"{destination}/single.pkl", 'wb'))
 
-    print('single counts completed, joint counting...')
-
     joint_graph_paths = [f'{dest_temp_joint}/{f}' for f in os.listdir(dest_temp_joint)
                          if f.endswith('.pkl')]
+    print('Num. Joint-paths', len(joint_graph_paths))
 
-    with Pool(processes=load_processes) as pool:
-        joint_graph = reduce(aggregate_count_nested,
-                             pool.imap_unordered(
-                                 load_graph, tqdm(joint_graph_paths)),
-                             defaultdict(lambda: defaultdict(int)))
+    shared_array_base = Array(ctypes.c_long, len(vocab2id)**2)
 
-    print('joint counts completed, dumping...')
+    with Pool(processes=load_processes, initializer=init,
+              initargs=(shared_array_base, len(vocab2id))) as pool:
+        pool.map(load_and_increment, joint_graph_paths)
 
-    for k1, s in joint_graph.items():
-        pickle.dump(dict(s), open(os.path.join(dest_joint, f"{k1}.pkl"), "wb"))
+    shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
+    shared_array = shared_array.reshape(len(vocab2id), len(vocab2id))
 
-    print('cleaning...')
-    shutil.rmtree(dest_temp_single)
-    shutil.rmtree(dest_temp_joint)
-    print('completed.')
+    print(f'joint counts completed {time()-sec_time} seconds, dumping...')
+
+    for k1 in range(len(vocab2id)):
+        pickle.dump({k2: v for k2, v in enumerate(shared_array[k1, :]) if v > 0},
+                    open(os.path.join(dest_joint, f"{k1}.pkl"), "wb"))
+
+    if clean_up:
+        print('cleaning...')
+        shutil.rmtree(dest_temp_single)
+        shutil.rmtree(dest_temp_joint)
+
+    print('completed.', time()-inittime, 'seconds')
     print(f'Single prior counts saved to: {destination}/single.pkl')
     print(f'Joint co-occurrence counts saved to: {dest_joint}')
