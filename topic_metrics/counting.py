@@ -4,7 +4,6 @@ import math
 import numpy as np
 import pandas as pd
 import pickle
-import shutil
 
 from collections import defaultdict
 from .io_utils import *
@@ -158,17 +157,13 @@ def shortlist_vocab(vocab_count_location, auto=True, upper_threshold=None, lower
     return vocab_count
 
 
-def count_windows_helper(f, directory, dest_single, dest_joint, window_size, vocab2id):
+def count_windows_helper(f, directory, window_size, vocab2id):
     """ Count sliding windows from a file, each line is a document
     Parameters
     ----------
     f : str
         filename in directory
     directory : str
-    dest_single : str
-        final destination file for prior count .pkl
-    dest_joint : str
-        final destination file for joint co-occurence .pkl
     window_size : int
         hyper-parameter for counting, sliding window size
     vocab2id : Dict[str, int]
@@ -176,16 +171,12 @@ def count_windows_helper(f, directory, dest_single, dest_joint, window_size, voc
 
     Return
     ------
-    Save outputs to respective locations
+    single_count : Dict[int, int]
+    joint_count : Dict[int, Dict[int, int]]
     """
-    single_path = os.path.join(dest_single, f"single_count_{f}.pkl")
-    joint_path = os.path.join(dest_joint, f"joint_count_{f}.pkl")
-    if os.path.exists(joint_path) and os.path.exists(single_path):
-        print(f"EXISTS: {joint_path}")
-        return 0
 
     single_count = defaultdict(int)
-    pair_count = defaultdict(lambda: defaultdict(int))
+    joint_count = defaultdict(lambda: defaultdict(int))
     MASK = np.ones(window_size, dtype=bool)
 
     with open(f'{directory}/{f}', 'r') as f:
@@ -204,7 +195,7 @@ def count_windows_helper(f, directory, dest_single, dest_joint, window_size, voc
             for w in words:
                 single_count[vocab2id[w]] += 1
             for w1, w2 in combinations(words, 2):
-                pair_count[vocab2id[w1]][vocab2id[w2]] += 1
+                joint_count[vocab2id[w1]][vocab2id[w2]] += 1
         else:
             convolved_bms = {}
             for w in words:
@@ -214,49 +205,65 @@ def count_windows_helper(f, directory, dest_single, dest_joint, window_size, voc
                 single_count[vocab2id[w]] += convolved_bms[w].sum()
 
             for w1, w2 in combinations(words, 2):
-                pair_count[vocab2id[w1]][vocab2id[w2]] += np.logical_and(
+                joint_count[vocab2id[w1]][vocab2id[w2]] += np.logical_and(
                     convolved_bms[w1], convolved_bms[w2]
                 ).sum()
 
     single_count = {k1: v for k1, v in single_count.items() if v != 0}
-    pair_count = {k1: {k2: v for k2, v in s.items() if v != 0}
-                  for k1, s in pair_count.items()}
+    joint_count = {k1: {k2: v for k2, v in s.items() if v != 0}
+                   for k1, s in joint_count.items()}
 
     words = list(single_count.keys())
     for w in words:
-        if w not in pair_count:
-            pair_count[w] = {}
+        if w not in joint_count:
+            joint_count[w] = {}
     for w1, w2 in combinations(words, 2):
-        rhs = pair_count[w2][w1] if w1 in pair_count[w2] else 0
-        lhs = pair_count[w1][w2] if w2 in pair_count[w1] else 0
+        rhs = joint_count[w2][w1] if w1 in joint_count[w2] else 0
+        lhs = joint_count[w1][w2] if w2 in joint_count[w1] else 0
         if rhs + lhs == 0:
             continue
-        pair_count[w2][w1] = pair_count[w1][w2] = rhs + lhs
+        joint_count[w2][w1] = joint_count[w1][w2] = rhs + lhs
 
-    pickle.dump(pair_count, open(joint_path, "wb"))
-    pickle.dump(single_count, open(single_path, "wb"))
-
-
-def init(shared_array_base, size):
-    global shared_array
-    shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
-    shared_array = shared_array.reshape(size, size)
-    print('Array created', shared_array.shape)
+    return single_count, joint_count
 
 
-def load_and_increment(path):
-    start = time()
-    g = load_graph(path)
-    for k1, s in g.items():
-        inc = np.zeros(len(shared_array), dtype=np.int64)
+def init_bases(single_base, joint_base, size):
+    """Initializer for shared array between pool workers
+    Parameters
+    ----------
+    single_base : Multiprocessing.Array
+    joint_base : Multiprocessing.Array
+    size : int
+        size x size matrix
+    """
+    global shared_single_array
+    global shared_joint_array
+
+    shared_single_array = np.ctypeslib.as_array(single_base.get_obj())
+    shared_joint_array = np.ctypeslib.as_array(joint_base.get_obj())
+    shared_joint_array = shared_joint_array.reshape(size, size)
+
+
+def count_windows_multiprocessing(f, directory, window_size, vocab2id):
+    """ helper for count_windows, require init
+    Parameters
+    ----------
+    refer to count_windows_helper
+    """
+    single, joint = count_windows_helper(
+        f, directory, window_size, vocab2id)
+    for k1, v in single.items():
+        shared_single_array[k1] += v
+
+    for k1, s in joint.items():
+        inc = np.zeros(len(shared_joint_array), dtype=np.int64)
         for k2, v in s.items():
             inc[k2] += v
-        shared_array[k1, :] += inc
-    print(f'{path} completed in {time()-start}s')
+        shared_joint_array[k1, :] += inc
 
 
 def count_windows(directory, destination, window_size, vocab2id,
-                  count_processes=4, load_processes=4, clean_up=True):
+                  count_processes=4):
     """ Pipeline for counting sliding windows in a directory (corpus)
     Parameters
     ----------
@@ -269,10 +276,6 @@ def count_windows(directory, destination, window_size, vocab2id,
         mapping of vocabulary word to its id
     count_processes : int
         number of workers in Pool to generate count graphs
-    load_processes : int
-        number of workers in Pool to load joint-count graphs for aggregation
-    clean_up : bool
-        set to True to delete temporary files
 
     Return
     ------
@@ -285,61 +288,35 @@ def count_windows(directory, destination, window_size, vocab2id,
     """
     inittime = time()
     destination = os.path.join(destination, str(window_size))
-    dest_temp_single = destination + '_single_temp'
-    dest_temp_joint = destination + '_joint_temp'
     dest_joint = os.path.join(destination, 'joint')
 
     os.makedirs(destination, exist_ok=True)
-    os.makedirs(dest_temp_single, exist_ok=True)
-    os.makedirs(dest_temp_joint, exist_ok=True)
     os.makedirs(dest_joint, exist_ok=True)
 
     files = [f for f in os.listdir(directory) if f.endswith('.txt')]
+    shared_single_base = Array(ctypes.c_long, len(vocab2id))
+    shared_joint_base = Array(ctypes.c_long, len(vocab2id)**2)
 
-    with Pool(processes=count_processes) as pool:
-        pool.map(partial(count_windows_helper,
+    with Pool(processes=count_processes, initializer=init_bases,
+              initargs=(shared_single_base, shared_joint_base, len(vocab2id))
+              ) as pool:
+        pool.map(partial(count_windows_multiprocessing,
                          directory=directory,
-                         dest_single=dest_temp_single,
-                         dest_joint=dest_temp_joint,
                          window_size=window_size, vocab2id=vocab2id),
                  tqdm(files))
 
-    print(f'counting completed, {time()-inittime} seconds, aggregate...')
-    sec_time = time()
+    print(f'counting completed, {time()-inittime} seconds, dumping...')
+    shared_single_array = np.ctypeslib.as_array(shared_single_base.get_obj())
+    shared_joint_array = np.ctypeslib.as_array(shared_joint_base.get_obj())
+    shared_joint_array = shared_joint_array.reshape(
+        len(vocab2id), len(vocab2id))
 
-    single_graph_paths = [f'{dest_temp_single}/{f}' for f in os.listdir(dest_temp_single)
-                          if f.endswith('.pkl')]
-
-    with Pool(processes=count_processes) as pool:
-        single_graph = reduce(aggregate_count,
-                              pool.imap_unordered(
-                                  load_graph, tqdm(single_graph_paths)),
-                              defaultdict(int))
-    pickle.dump(single_graph, open(f"{destination}/single.pkl", 'wb'))
-
-    joint_graph_paths = [f'{dest_temp_joint}/{f}' for f in os.listdir(dest_temp_joint)
-                         if f.endswith('.pkl')]
-    print('Num. Joint-paths', len(joint_graph_paths))
-
-    shared_array_base = Array(ctypes.c_long, len(vocab2id)**2)
-
-    with Pool(processes=load_processes, initializer=init,
-              initargs=(shared_array_base, len(vocab2id))) as pool:
-        pool.map(load_and_increment, joint_graph_paths)
-
-    shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
-    shared_array = shared_array.reshape(len(vocab2id), len(vocab2id))
-
-    print(f'joint counts completed {time()-sec_time} seconds, dumping...')
-
+    pickle.dump({i: v for i, v in enumerate(shared_single_array)},
+                open(f"{destination}/single.pkl", "wb"))
     for k1 in range(len(vocab2id)):
-        pickle.dump({k2: v for k2, v in enumerate(shared_array[k1, :]) if v > 0},
+        pickle.dump({k2: v for k2, v in enumerate(shared_joint_array[k1, :])
+                     if v > 0},
                     open(os.path.join(dest_joint, f"{k1}.pkl"), "wb"))
-
-    if clean_up:
-        print('cleaning...')
-        shutil.rmtree(dest_temp_single)
-        shutil.rmtree(dest_temp_joint)
 
     print('completed.', time()-inittime, 'seconds')
     print(f'Single prior counts saved to: {destination}/single.pkl')
