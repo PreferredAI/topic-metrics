@@ -378,8 +378,7 @@ def aggregate_prob_graph(graph, item, num_windows, min_freq):
 
 
 def load_joint_prob_graph(graph_dir, num_windows, min_freq,
-                          shortlist=[], num_processes=1,
-                          existing_graph={}):
+                          shortlist=[], existing_graph={}):
     """ Load and build probability graphs from count graphs
 
     Parameters
@@ -392,34 +391,20 @@ def load_joint_prob_graph(graph_dir, num_windows, min_freq,
         lower bount to consider co-occurrence counts
     shortlist : List[int]
         list of shortlisted vocab ids
-    num_processes : int
-        number of wokers in Pool
     existing_graph : Dict[int, Dict[int, float]]
 
     Returns
     -------
     joint co-occurence probability graph : Dict[int, Dict[int, float]]
-
-    Benchmark
-    ---------
-    Benchmarked using Wiki large graphs:
-    150 graphs/s using AMD EPYC 7502 @ 2.50GHz with 20 workers
-    100 graphs/s using ~ but with multiprocessing.Manager.dict()
     """
     if len(shortlist) == 0:
         paths = [f"{graph_dir}/{f}" for f in os.listdir(graph_dir)]
     else:
         paths = [f"{graph_dir}/{f}.pkl" for f in shortlist if os.path.exists(
             os.path.join(graph_dir, f"{f}.pkl"))]
-    if num_processes == 1:
-        graph = reduce(partial(aggregate_prob_graph, num_windows=num_windows,
-                               min_freq=min_freq), iload_id_and_graph(paths),
-                       existing_graph)
-    else:
-        with Pool(num_processes) as pool:
-            graph = reduce(partial(aggregate_prob_graph, num_windows=num_windows,
-                                   min_freq=min_freq), pool.imap(load_id_and_graph,
-                                                                 tqdm(paths)), existing_graph)
+    graph = reduce(partial(aggregate_prob_graph, num_windows=num_windows,
+                            min_freq=min_freq), iload_id_and_graph(paths),
+                    existing_graph)
     return graph
 
 
@@ -480,7 +465,6 @@ def single_count_setup(histogram_path, single_count_path,
         hyper-parameter for counting, sliding window size
     min_freq : int 
         lower bount to consider co-occurrence counts
-        auto uses window_size to determine
     Returns
     -------
     num_windows: int
@@ -511,7 +495,6 @@ def calculate_score_from_counts(topic, single_prob, joint_count_path,
         total number of windows in corpus
     min_freq : int 
         lower bount to consider co-occurrence counts
-        auto uses window_size to determine
     score_func : function
         Defined as f(p_a_b, p_a, p_b, **kwargs)
         Function takes in joint co-occ and prior word probabilities
@@ -537,9 +520,11 @@ def calculate_score_from_counts(topic, single_prob, joint_count_path,
 def calculate_scores_from_counts(topics, histogram_path, single_count_path,
                      joint_count_path, score_func,
                      agg_func,
-                     window_size, smooth=True, min_freq='auto',
+                     window_size, smooth=True, min_freq=0,
                      num_processes=10):
     """ Caculate topics scores your way from count graphs
+
+    Use this when the full count graph is not needed
 
     Parameters
     ----------
@@ -564,7 +549,6 @@ def calculate_scores_from_counts(topics, histogram_path, single_count_path,
         Decides the use of epsilon=1e-12 or default
     min_freq : int 
         lower bount to consider co-occurrence counts
-        auto uses window_size to determine
     num_processes : int
         number of wokers in Pool
 
@@ -582,8 +566,6 @@ def calculate_scores_from_counts(topics, histogram_path, single_count_path,
     60 topics/s using AMD EPYC 7502 @ 2.50GHz with 25 workers
     """
 
-    if min_freq == 'auto':
-        min_freq = max(10, window_size*10)
     num_windows, single_prob = single_count_setup(histogram_path, single_count_path,
                                                   window_size, min_freq)
 
