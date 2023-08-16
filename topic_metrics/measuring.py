@@ -377,7 +377,7 @@ def aggregate_prob_graph(graph, item, num_windows, min_freq):
     return graph
 
 
-def create_joint_prob_graph(graph_dir, num_windows, min_freq,
+def load_joint_prob_graph(graph_dir, num_windows, min_freq,
                           shortlist=[], num_processes=1,
                           existing_graph={}):
     """ Load and build probability graphs from count graphs
@@ -527,7 +527,7 @@ def calculate_score_from_counts(topic, single_prob, joint_count_path,
     score: float
         Output of computation of your scoring and aggregate function
     """
-    joint_prob = create_joint_prob_graph(joint_count_path,
+    joint_prob = load_joint_prob_graph(joint_count_path,
                                        num_windows, min_freq, topic)
     graph = create_graph_with(
         score_func, joint_prob, single_prob, smooth, shortlist=set(topic))
