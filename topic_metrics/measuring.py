@@ -612,18 +612,15 @@ def _aggregate_count_graph(path):
     return 1
 
 
-def load_full_joint_count_graph(graph_dir, num_windows, min_freq, size,
-                               num_processes=20):
+def load_full_joint_count_graph(graph_dir, size, num_processes=20):
     """ Load and build count graphs from count graphs
 
     Parameters
     ----------
     graph_dir : str
         path to directory cotaining only .pkl joint graphs
-    num_windows: int
-        total number of windows in corpus
-    min_freq : int 
-        lower bount to consider co-occurrence counts
+    size : int
+        size of vocabulary space
     num_processes : int
         number of wokers in Pool
 
