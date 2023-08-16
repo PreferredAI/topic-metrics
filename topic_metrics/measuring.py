@@ -1,11 +1,12 @@
+import ctypes
 import pandas as pd
 import numpy as np
 import os
 
 from .counting import load_graph, load_id_and_graph, iload_id_and_graph
 from functools import reduce, partial
-from math import log
-from multiprocessing import Pool
+from math import log, sqrt
+from multiprocessing import Array, Pool
 from tqdm import tqdm
 
 EPS = EPSILON = 1e-12
@@ -294,6 +295,7 @@ def indirect_cv(topic, npmi_graph, gamma=1, error_default_to=0):
     g2 = graph.sum(axis=0)  # for diag co-occ npmi
     return (graph.dot(g2) / (np.linalg.norm(graph, 2, axis=1) * np.linalg.norm(g2, 2,))).mean()
 
+
 def simple_aggregate(graph, item):
     """ 
     Parameters
@@ -333,9 +335,10 @@ def load_scored_graph(shortlist, graph_dir, agg_func, existing_graph={}):
     else:
         paths = [f"{graph_dir}/{f}.pkl" for f in shortlist if os.path.exists(
             os.path.join(graph_dir, f"{f}.pkl"))]
-    
+
     return agg_func(shortlist, reduce(simple_aggregate, iload_id_and_graph(paths),
-                       existing_graph))
+                                      existing_graph))
+
 
 def calculate_scored_graphs(topics, graph_dir, agg_func, num_processes=1):
     """ Directly load graph and score topics without additional processing
@@ -350,11 +353,10 @@ def calculate_scored_graphs(topics, graph_dir, agg_func, num_processes=1):
         number of wokers in Pool
     """
     with Pool(processes=num_processes) as pool:
-        scores = pool.map(partial(load_scored_graph, 
+        scores = pool.map(partial(load_scored_graph,
                                   graph_dir=graph_dir, agg_func=agg_func),
-            tqdm(topics))
+                          tqdm(topics))
     return scores
-            
 
 
 def aggregate_prob_graph(graph, item, num_windows, min_freq):
@@ -403,8 +405,8 @@ def load_joint_prob_graph(graph_dir, num_windows, min_freq,
         paths = [f"{graph_dir}/{f}.pkl" for f in shortlist if os.path.exists(
             os.path.join(graph_dir, f"{f}.pkl"))]
     graph = reduce(partial(aggregate_prob_graph, num_windows=num_windows,
-                            min_freq=min_freq), iload_id_and_graph(paths),
-                    existing_graph)
+                           min_freq=min_freq), iload_id_and_graph(paths),
+                   existing_graph)
     return graph
 
 
@@ -479,8 +481,8 @@ def single_count_setup(histogram_path, single_count_path,
 
 
 def calculate_score_from_counts(topic, single_prob, joint_count_path,
-                    num_windows, min_freq, score_func,
-                    agg_func, smooth):
+                                num_windows, min_freq, score_func,
+                                agg_func, smooth):
     """ Caculate one topic score your way from count graphs
 
     Parameters
@@ -518,10 +520,10 @@ def calculate_score_from_counts(topic, single_prob, joint_count_path,
 
 
 def calculate_scores_from_counts(topics, histogram_path, single_count_path,
-                     joint_count_path, score_func,
-                     agg_func,
-                     window_size, smooth=True, min_freq=0,
-                     num_processes=10):
+                                 joint_count_path, score_func,
+                                 agg_func,
+                                 window_size, smooth=True, min_freq=0,
+                                 num_processes=10):
     """ Caculate topics scores your way from count graphs
 
     Use this when the full count graph is not needed
@@ -579,3 +581,154 @@ def calculate_scores_from_counts(topics, histogram_path, single_count_path,
     return scores
 
 
+def init_bases(joint_base, size):
+    """Initializer for shared array between pool workers
+    Parameters
+    ----------
+    joint_base : Multiprocessing.Array
+    size : int
+        for size x size matrix
+    """
+    global shared_joint_array
+
+    shared_joint_array = np.ctypeslib.as_array(joint_base.get_obj())
+    shared_joint_array = shared_joint_array.reshape(size, size)
+
+
+def _aggregate_count_graph(path):
+    """ Helper for load_full_joint_prob_graph
+    Parameters
+    ----------
+    path: str
+        {$id}.pkl filepath
+    """
+
+    key, g = load_id_and_graph(path)
+    arr = np.zeros(len(shared_joint_array))
+    for k, v in g.items():
+        arr[k] = v
+    shared_joint_array[key] = arr
+
+    return 1
+
+
+def load_full_joint_count_graph(graph_dir, num_windows, min_freq, size,
+                               num_processes=20):
+    """ Load and build count graphs from count graphs
+
+    Parameters
+    ----------
+    graph_dir : str
+        path to directory cotaining only .pkl joint graphs
+    num_windows: int
+        total number of windows in corpus
+    min_freq : int 
+        lower bount to consider co-occurrence counts
+    num_processes : int
+        number of wokers in Pool
+
+    Returns
+    -------
+    joint co-occurence count graph : Dict[int, Dict[int, float]]
+
+    Benchmark
+    ---------
+    Benchmarked using Wiki large graphs:
+    Full Wiki Graphs loaded in 60s @ 20 workers
+    """
+
+    paths = [f"{graph_dir}/{f}" for f in os.listdir(graph_dir)]
+    shared_joint_base = Array(ctypes.c_long, size**2)
+
+    with Pool(num_processes, initializer=init_bases,
+              initargs=(shared_joint_base, size)) as pool:
+        pool.map(_aggregate_count_graph, tqdm(paths))
+    return shared_joint_base
+
+
+def _calculate_score_from_counts(topic, single_prob,
+                                 num_windows, min_freq, score_func,
+                                 agg_func, smooth):
+    """ Helper for calculate_scores_from_counts_array
+
+    Uses shared array
+
+    Parameters
+    ----------
+    topic : List[int]
+        list of vocab ids
+    single_prob : Dict[int,float]
+        prior probability graph
+    num_windows: int
+        total number of windows in corpus
+    min_freq : int 
+        lower bount to consider co-occurrence counts
+    score_func : function
+        Defined as f(p_a_b, p_a, p_b, **kwargs)
+        Function takes in joint co-occ and prior word probabilities
+        Generates a graph based on your scoring function
+    agg_func : function
+        Defined as f(topics, graph, **kwargs)
+        Aggregate the scores your way from the graph subset of selected topics
+    smooth : bool
+        Decides the use of epsilon=1e-12 or default
+
+    Returns
+    -------
+    score: float
+        Output of computation of your scoring and aggregate function
+    """
+    joint_prob = {k1: create_prob_graph({k2: shared_joint_array[k1][k2] for k2 in topic},
+                                        num_windows, min_freq) for k1 in topic}
+    graph = create_graph_with(score_func, joint_prob, single_prob, smooth)
+    return agg_func(topic, graph)
+
+
+def calculate_scores_from_counts_array(topics, single_prob, joint_array,
+                                       score_func, agg_func, num_windows,
+                                       smooth=True, min_freq=0, num_processes=20):
+    """ Caculate topics scores your way from count graphs
+
+    Use this when the full count graph is not needed
+
+    Parameters
+    ----------
+    topics: List[List[int]]
+        List of list of vocab ids
+    single_prob : Dict[int,float]
+        prior probability graph
+    joint_array : str
+        shared array loaded from load_full_joint_prob_graph
+    score_func : function
+        Defined as f(p_a_b, p_a, p_b, **kwargs)
+        Function takes in joint co-occ and prior word probabilities
+        Generates a graph based on your scoring function
+    agg_func : function
+        Defined as f(topics, graph, **kwargs)
+        Aggregate the scores your way from the graph subset of selected topics
+    num_windows: int
+        total number of windows in corpus
+    smooth : bool
+        Decides the use of epsilon=1e-12 or default
+    min_freq : int 
+        lower bount to consider co-occurrence counts
+    num_processes : int
+        number of wokers in Pool
+
+    Returns
+    -------
+    scores: List[float]
+        Outputs of computation of your scoring and aggregate function
+
+    Benchmark
+    ---------
+    1K topics of size 10 / s @ 40 workers
+    """
+    with Pool(processes=num_processes, initializer=init_bases,
+              initargs=(joint_array, int(sqrt(len(joint_array))))) as pool:
+        scores = pool.map(partial(_calculate_score_from_counts, single_prob=single_prob,
+                                  num_windows=num_windows, min_freq=min_freq,
+                                  score_func=score_func, agg_func=agg_func,
+                                  smooth=smooth),
+                          tqdm(topics))
+    return scores
