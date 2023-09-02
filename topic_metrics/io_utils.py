@@ -3,6 +3,7 @@ import pickle
 
 from functools import partial
 from multiprocessing import Pool
+import numpy as np
 from tqdm import tqdm
 
 
@@ -132,3 +133,8 @@ def split_corpus(directory, destination, batch, num_processes=1):
                          destination=destination,
                          batch=batch),
                  tqdm(files))
+        
+def reshape_shared_array(joint_array, N):
+    shared_joint_array = np.ctypeslib.as_array(joint_array.get_obj())
+    shared_joint_array = shared_joint_array.reshape(N, N)
+    return shared_joint_array

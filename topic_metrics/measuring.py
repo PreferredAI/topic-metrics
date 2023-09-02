@@ -4,6 +4,8 @@ import numpy as np
 import os
 
 from .counting import load_graph, load_id_and_graph, iload_id_and_graph
+from copy import deepcopy
+from collections import defaultdict
 from functools import reduce, partial
 from math import log, sqrt
 from multiprocessing import Array, Pool
@@ -146,15 +148,15 @@ def npmi(p_a_b, p_a, p_b, smooth=True, default_to=0):
     return log(p_a_b / (p_a * p_b)) / -log(p_a_b)
 
 
-def create_prob_graph(graph, num_window, min_freq):
+def create_prob_graph(graph, num_windows, min_freq):
     """ Create prob. graph from count graph fulfilling minimum freq. count
 
     Parameters
     ----------
     graph : Dict[int, int]
         count graph
-    num_window : int
-        num_window number of sliding windows in corpus
+    num_windows : int
+        num_windows number of sliding windows in corpus
     min_freq : int
         lower bound to exclude rare words with counts less than
 
@@ -162,18 +164,18 @@ def create_prob_graph(graph, num_window, min_freq):
     ------
     probability graph : Dict[int, float]   
     """
-    return {k: v/num_window if v >= min_freq else 0 for k, v in graph.items()}
+    return {k: v/num_windows if v >= min_freq else 0 for k, v in graph.items()}
 
 
-def create_joint_prob_graph(graph, num_window, min_freq):
+def create_joint_prob_graph(graph, num_windows, min_freq):
     """ Create joint co-occurrence prob. graph fulfilling minimum freq. count
 
     Parameters
     ----------
     graph : Dict[int, Dict[int, Any]]
         joint co-occurence count graph
-    num_window : int
-        num_window number of sliding windows in corpus
+    num_windows : int
+        num_windows number of sliding windows in corpus
     min_freq : int
         lower bound to exclude rare word-pairs with counts less than
 
@@ -182,7 +184,7 @@ def create_joint_prob_graph(graph, num_window, min_freq):
     joint co-occurence probability graph : Dict[int, Dict[int, float]]
     """
     return {
-        i: create_prob_graph(j, num_window, min_freq)
+        i: create_prob_graph(j, num_windows, min_freq)
         for i, j in graph.items()
     }
 
@@ -631,7 +633,7 @@ def load_full_joint_count_graph(graph_dir, size, num_processes=20):
     Benchmark
     ---------
     Benchmarked using Wiki large graphs:
-    Full Wiki Graphs loaded in 60s @ 20 workers
+    Full Wiki Graphs loaded in 60s+ @ 20 workers
     """
 
     paths = [f"{graph_dir}/{f}" for f in os.listdir(graph_dir)]
@@ -643,10 +645,81 @@ def load_full_joint_count_graph(graph_dir, size, num_processes=20):
     return shared_joint_base
 
 
-def _calculate_score_from_counts(topic, single_prob,
-                                 num_windows, min_freq, score_func,
-                                 agg_func, smooth):
-    """ Helper for calculate_scores_from_counts_array
+def optimize_placements(g):
+    """Optimize word positions in a word-score graph
+    
+    Parameters
+    ----------
+    g : Dict[int, Dict[int, float]]
+
+    Returns
+    -------
+    positions : List[int]
+    """
+    g2 = deepcopy(g)
+    positions = []
+    score = 0
+    for i in range(len(g)):
+        best_v = -9999
+        best_t = None
+        for t, v in g2.items():
+            vv = sum([g2[j][t] for j in v])
+            v = sum(v.values())
+            v3 = vv-v
+            if v3 > best_v:
+                best_v = v3
+                best_t = t
+        positions.append(best_t)
+        del g2[best_t]
+        for k, s in g2.items():
+            if best_t in s:
+                del s[best_t]
+        score += best_v
+    return positions
+
+
+def optimize_score_from_count_array(topic, single_prob, num_windows, min_freq, 
+                                score_func, agg_func, smooth):
+    """ Helper for calculate_scores_from_count_array
+    Calculate and optimize positions, uses shared array
+    Parameters
+    ----------
+    topic : List[int]
+        list of vocab ids
+    single_prob : Dict[int,float]
+        prior probability graph
+    num_windows: int
+        total number of windows in corpus
+    min_freq : int 
+        lower bount to consider co-occurrence counts
+    score_func : function
+        Defined as f(p_a_b, p_a, p_b, **kwargs)
+        Function takes in joint co-occ and prior word probabilities
+        Generates a graph based on your scoring function
+    agg_func : function
+        Defined as f(topics, graph, **kwargs)
+        Aggregate the scores your way from the graph subset of selected topics
+    smooth : bool
+        Decides the use of epsilon=1e-12 or default
+
+    Returns
+    -------
+    score: float
+        Output of computation of your scoring and aggregate function
+    score2: float
+        Score from optimizing word positions
+    """
+    joint_prob = {k1: create_prob_graph({k2: shared_joint_array[k1][k2] for k2 in topic},
+                                        num_windows, min_freq) for k1 in topic}
+    graph = create_graph_with(score_func, joint_prob, single_prob, smooth)
+    topic2 = optimize_placements(graph)
+
+    return agg_func(topic, graph), agg_func(topic2, graph)
+
+
+def calculate_score_from_count_array(topic, single_prob, num_windows,
+                                 min_freq, score_func, agg_func, smooth):
+    """ Default helper for calculate_scores_from_count_array
 
     Uses shared array
 
@@ -681,10 +754,11 @@ def _calculate_score_from_counts(topic, single_prob,
     return agg_func(topic, graph)
 
 
-def calculate_scores_from_counts_array(topics, single_prob, joint_array,
+def calculate_scores_from_count_array(topics, single_prob, joint_array,
                                        score_func, agg_func, num_windows,
-                                       smooth=True, min_freq=0, num_processes=20):
-    """ Caculate topics scores your way from count graphs
+                                       smooth=True, min_freq=0, num_processes=20,
+                                       helper=calculate_score_from_count_array):
+    """ Caculate topics scores your way from count array
 
     Use this when the full count graph is not needed
 
@@ -694,8 +768,8 @@ def calculate_scores_from_counts_array(topics, single_prob, joint_array,
         List of list of vocab ids
     single_prob : Dict[int,float]
         prior probability graph
-    joint_array : str
-        shared array loaded from load_full_joint_prob_graph
+    joint_array : N*N array
+        co-occurence scored graph
     score_func : function
         Defined as f(p_a_b, p_a, p_b, **kwargs)
         Function takes in joint co-occ and prior word probabilities
@@ -723,9 +797,94 @@ def calculate_scores_from_counts_array(topics, single_prob, joint_array,
     """
     with Pool(processes=num_processes, initializer=init_bases,
               initargs=(joint_array, int(sqrt(len(joint_array))))) as pool:
-        scores = pool.map(partial(_calculate_score_from_counts, single_prob=single_prob,
+        scores = pool.map(partial(helper, single_prob=single_prob,
                                   num_windows=num_windows, min_freq=min_freq,
                                   score_func=score_func, agg_func=agg_func,
                                   smooth=smooth),
                           tqdm(topics))
     return scores
+
+
+def init_bases_score(joint_base_long, joint_base_float, size):
+    """Initializer for shared array between pool workers
+    Parameters
+    ----------
+    joint_base : Multiprocessing.Array
+    size : int
+        for size x size matrix
+    """
+    global shared_joint_array_long
+    global shared_joint_array_float
+
+    shared_joint_array_long = np.ctypeslib.as_array(joint_base_long.get_obj())
+    shared_joint_array_long = shared_joint_array_long.reshape(size, size)
+
+    shared_joint_array_float = np.ctypeslib.as_array(
+        joint_base_float.get_obj())
+    shared_joint_array_float = shared_joint_array_float.reshape(size, size)
+
+
+def create_scored_array_row(key, num_windows, min_freq,
+                            score_func=lambda x: x, single_prob=None, smooth=True):
+    """ Create prob. array from count graph fulfilling minimum freq. count
+
+    Parameters
+    ----------
+    key : index of nth row in NxN matrix
+    num_windows : int
+        num_windows number of sliding windows in corpus
+    min_freq : int
+        lower bound to exclude rare words with counts less than
+    score_func: function
+        default returns joint probability
+
+    Return
+    ------
+    probability graph : Dict[int, float]
+    """
+    single_prob = defaultdict(int, single_prob)
+    count_arr = shared_joint_array_long[key]
+    joint_prob = [v/num_windows if v >= min_freq else 0 for v in count_arr]
+    joint_score = np.array([score_func(v, single_prob[key], single_prob[j], smooth=smooth)
+                            for j, v in enumerate(joint_prob)])
+    shared_joint_array_float[key] = joint_score
+
+
+def create_scores_from_count_array(score_func, joint_array, single_prob,
+                                    num_windows, min_freq,
+                                    smooth=True, num_processes=20):
+    """ create a scored graph from probability graphs
+
+    Parameters
+    ----------
+    score_func : function -> float
+        Defined as f(p_a_b, p_a, p_b, **kwargs)
+        Function takes in joint co-occ and prior word probabilities
+        Generates a graph based on your scoring function
+    joint_array : N*N array
+        co-occurence scored graph
+    single_prob: Dict[int, float]
+        prior probability graph
+    num_windows : int
+        num_windows number of sliding windows in corpus
+    min_freq : int
+        lower bound to exclude rare words with counts less than
+    smooth : bool
+        Decides the use of epsilon=1e-12 or default if required
+    shortlist : List[int]
+        list of shortlisted vocab ids
+
+    Return
+    ------
+    scored co-occurrence graph : Dict[int, Dict[int, float]]
+    """
+
+    shared_joint_base = Array(ctypes.c_float, len(joint_array))
+    with Pool(processes=num_processes, initializer=init_bases_score,
+              initargs=(joint_array, shared_joint_base, int(sqrt(len(joint_array))))) as pool:
+        pool.map(partial(create_scored_array_row, single_prob=single_prob,
+                         num_windows=num_windows, min_freq=min_freq,
+                         score_func=score_func, smooth=smooth),
+                 tqdm(range(len(single_prob))))
+
+    return shared_joint_base
