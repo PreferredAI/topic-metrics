@@ -26,6 +26,7 @@ def matrixfy_graph_dict(graph):
     mat = np.zeros((sz, sz), dtype="bool")
     idx = {w: i for i, w in enumerate(graph.keys())}
     for w1, s1 in graph.items():
+        # mat[idx[w1], [idx[w2] for w2 in s1.keys()]] = 1
         mat[idx[w1], [idx[w2] for w2 in s1.keys()]] = 1
     return mat, idx
 
@@ -111,11 +112,6 @@ def s_degreelist(remaining, clique, candidates, dag):
         next_candidates = np.bitwise_and(dag[u], candidates)
         next_candidates_id = np.nonzero(next_candidates)[0]
 
-        if len(candidates) <= remaining - 2:
-            continue
-        if remaining < 2:
-            return []
-
         if remaining == 2 and len(next_candidates_id) > 0:
             output = clique.union([u])
             output.add(random.choices(next_candidates_id)[0])
@@ -123,8 +119,7 @@ def s_degreelist(remaining, clique, candidates, dag):
                 dag[o1, o2] = 0
                 dag[o2, o1] = 0
             return output
-
-        elif len(next_candidates) > remaining - 2:
+        elif len(next_candidates) >= remaining - 1:
             travel = s_degreelist(
                 remaining - 1, clique.union([u]), next_candidates, dag)
             if len(travel) != 0:
@@ -183,8 +178,8 @@ def prune_graph_using_edge_value(graph, condition):
     graph: Dict[int, Dict[int, Any]]
     """
     graph = {k1: {k2: v for k2, v in s.items() if condition(v)}
-             for k1, s in graph.items()}
-    graph = {k1: s for k1, s in graph.items() if len(s) > 0}
+             for k1, s in tqdm(graph.items())}
+    # graph = {k1: s for k1, s in graph.items() if len(s) > 0}
     return graph
 
 
@@ -192,7 +187,7 @@ def prune_graph_using_vertex(graph, keep):
     """
     Parameters
     ----------
-    graph: Dict[int, Dict[int, Any]]
+    graph: NxN matrix
     keep: List[int]
         vertices to keep in graph
 
@@ -200,19 +195,19 @@ def prune_graph_using_vertex(graph, keep):
     -------
     graph: Dict[int, Dict[int, Any]]
     """
-    graph = {k1: {k2: v for k2, v in s.items() if k2 in keep}
-             for k1, s in graph.items() if k1 in keep}
+    graph = {k1: {k2: graph[k1][k2] for k2 in keep}
+             for k1 in tqdm(keep)}
     return graph
 
 
-def sample(key, graph_dir, clique_size, edge_condition, target=1):
+def sample(key, graph, clique_size, edge_condition, target=1):
     """ Sample cliques from sub-graph constrained by edge condition
     Parameters
     ----------
     key : int
         vocab id to shortlist sub-graph
-    graph_dir : str
-        directory path to all the co-occurence scored graph
+    graph: N*N array
+        co-occurence scored graph
     clique_size : int
     edge_condition : function(v) -> bool
         that takes in a value and returns bool
@@ -224,14 +219,10 @@ def sample(key, graph_dir, clique_size, edge_condition, target=1):
     List[List[int]]
         List of topics (list of vocab ids)
     """
-    print('START:', key)
     start = time.time()
-    keys = [k for k, v in load_graph(f"{graph_dir}/{key}.pkl").items()
-            if edge_condition(v)] + [key]
-    paths = [os.path.join(graph_dir, f'{k}.pkl') for k in keys]
-    g = reduce(aggregate_loaded, tqdm(iload_id_and_graph(paths)), {})
-    print(f'{key}\tLoaded:', time.time()-start)
-    g = prune_graph_using_vertex(g, keys)
+    keys = [k for k, v in enumerate(graph[key]) if edge_condition(v)] + [key]
+    print('START:', key, 'QTY:', len(keys))
+    g = prune_graph_using_vertex(graph, keys)
     g = prune_graph_using_edge_value(g, edge_condition)
     print(f'{key}\tPruned:', time.time()-start)
     sampled = s_degree(g, clique_size, target)
