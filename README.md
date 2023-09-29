@@ -6,8 +6,11 @@ For larger corpora, it is probably more efficient to compute counts once.
 
 Most of the codebase was refactored and lightly tested on python 3.10 (in theory it should work on >=3.6).
 Some functions were benchmarked for speed, using AMD EPYC 7502 @ 2.50GHz, using large Wikipedia graphs:
-  1. 33 minutes to calculate 40K Wikipedia NPMI graphs from count graphs 
-  2. 80 topics evaluated on NPMI / second from count graphs
+  1. 2 minutes to calculate 40K Wikipedia NPMI graphs from count graphs (see tutorial)
+  2. 80 topics evaluated on NPMI / second from lazily loading count graphs (great for evaluating few topics)
+  3. 30s to load 40K Wikipedia count graphs
+  4. Very fast evaluation when count graphs are pre-loaded (300 topics/s with pre-loaded count graphs, see tutorial)
+  5. 7-8 Hours to count Wikipedia in sliding windows (1B+ tokens total, 5M documents)
  
 More found in docstrings.
 
