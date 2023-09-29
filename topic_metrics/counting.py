@@ -120,20 +120,18 @@ def count_vocab(directory, destination, num_processes=1):
 
     vocab = dict(reduce(aggregate_count, tqdm(vocab), defaultdict(int)))
     vocab = {k: v for k, v in sorted(vocab.items(), key=lambda x: x[0])}
-    pickle.dump(vocab, open(f"{destination}/vocab_count.pkl", 'wb'))
-    print("vocab saved:", f"{destination}/vocab_count.pkl")
+    pickle.dump(vocab, open(destination, 'wb'))
+    print(f"vocab saved: {destination}")
 
 
-def shortlist_vocab(vocab_count_location, auto=True, upper_threshold=None, lower_threshold=None):
+def shortlist_vocab(vocab_count_location, upper_threshold=None, lower_threshold=None):
     """ Shortlist vocab based on count, mode 'auto' is similar to Hoyle et al., 2021
     Parameters
     ----------
     vocab_count_location : str
-    auto : bool
-        Set to False if thresholds are defined
     upper_threshold : int
         ignore vocabulary with counts higher than
-    lower_thresohld : int
+    lower_threshold : int
         ignore vocabulary with counts lower than
 
     Return
@@ -143,16 +141,18 @@ def shortlist_vocab(vocab_count_location, auto=True, upper_threshold=None, lower
     """
     vocab_count = pickle.load(open(vocab_count_location, 'rb'))
     max_count = max(list(vocab_count.values()))
-
-    if upper_threshold == None:
-        upper_threshold = max_count+1
-    if lower_threshold == None:
-        lower_threshold = 0
-    if auto:
-        upper_threshold = int(max_count * 0.9)
-        lower_threshold = int(2 * (0.02*max_count) ** (1/math.log(10)))
+    
+    ut = int(max_count * 0.9)
+    lt = int(2 * (0.02*max_count) ** (1/math.log(10)))
+    if upper_threshold != None:
+        ut = upper_threshold
+    if lower_threshold != None:
+        lt = lower_threshold
+        
     vocab_count = {k: v for k, v in vocab_count.items()
-                   if v < upper_threshold and v > lower_threshold}
+                   if v < ut and v > lt}
+    if '' in vocab_count:
+        del vocab_count['']
 
     return vocab_count
 
