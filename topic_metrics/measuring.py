@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from .counting import load_graph, load_id_and_graph, iload_id_and_graph
+from .io_utils import load_graph, load_id_and_graph, iload_id_and_graph
 from copy import deepcopy
 from collections import defaultdict
 from functools import reduce, partial

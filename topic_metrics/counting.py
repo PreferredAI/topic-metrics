@@ -6,7 +6,6 @@ import pandas as pd
 import pickle
 
 from collections import defaultdict
-from .io_utils import *
 from functools import reduce, partial
 from itertools import combinations
 from multiprocessing import Pool, Array
