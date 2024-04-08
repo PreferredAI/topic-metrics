@@ -18,7 +18,7 @@ More found in docstrings.
 ### Goals
 Hackable: hopefully readable and extendable for **your own** use cases.
 
-Lightweight: only numpy and pandas dependencies.
+Lightweight: only numpy and tqdm dependencies.
 
 Speed: some attempts at computation efficiency.
 
