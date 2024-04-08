@@ -33,9 +33,18 @@ Speed: some attempts at computation efficiency.
 ---
 ### To-do
 <ol>
-  <li>make it pip-able</li>
   <li>Some convenience functions</li>
 </ol> 
+
+---
+### To install
+
+    pip install git+https://github.com/PreferredAI/topic-metrics.git
+
+--- 
+### Recommendations
+
+We recommend setting a low window size (e.g 10) and minimum frequency (e.g. 0) for large corpora.
 
 --- 
 ### Releasable Resources
