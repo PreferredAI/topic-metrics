@@ -1,5 +1,4 @@
 import ctypes
-import pandas as pd
 import numpy as np
 import os
 
@@ -33,7 +32,7 @@ def get_total_windows(histogram_path, window_size):
     ----
     as per Palmetto (Röder et al., 2015)
     """
-    histogram = pd.read_csv(histogram_path, header=None).values
+    histogram = np.genfromtxt(histogram_path, delimiter=',')
     if window_size == 0:
         return histogram[:, 1].sum()
     return (histogram[:, 1] * np.maximum([1], histogram[:, 0] - (window_size - 1))).sum()
