@@ -70,7 +70,6 @@ def count_histogram(directory, destination, num_processes):
         reduce(aggregate_count, tqdm(histograms), defaultdict(int)))
 
     dest = os.path.join(destination, "histogram.csv")
-    # pd.DataFrame(histograms.items()).to_csv(dest, header=None, index=None)
     open(dest, 'w').write("\n".join(f"{item[0]},{item[1]}" for item in histograms.items()))
     print("histogram saved:", dest)
 
