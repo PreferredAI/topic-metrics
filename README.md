@@ -4,6 +4,9 @@
 Accompanying code that made mining and evaluating **millions** of topic representations possible. 
 For larger corpora, it is probably more efficient to compute counts once.
 
+**Only using NPMI: see downloadables and snippet below.**
+
+**Calculating from scratch:**
 Most of the codebase was refactored and lightly tested on python 3.10 (in theory it should work on >=3.6).
 Some functions were benchmarked for speed, using AMD EPYC 7502 @ 2.50GHz, using large Wikipedia graphs:
   1. 2 minutes to calculate 40K Wikipedia NPMI graphs from count graphs (see tutorial)
@@ -31,12 +34,6 @@ Speed: some attempts at computation efficiency.
 </ol> 
 
 ---
-### To-do
-<ol>
-  <li>Some convenience functions</li>
-</ol> 
-
----
 ### To install
 
     pip install git+https://github.com/PreferredAI/topic-metrics.git
@@ -48,7 +45,30 @@ We recommend setting a low window size (e.g 10) and minimum frequency (e.g. 0) f
 
 --- 
 ### Releasable Resources
-[Dropbox Link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
+
+Wiki (~40K Vocabulary) NPMI values: 
+
+Download matrix values in float16, window size 10, select minimum frequency (mf) and use easily.
+
+vocab_index [original](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id.pkl), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id_lemma.pkl)
+
+mf=0 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf0.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf0.npy)
+
+mf=100 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf100.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf100.npy)
+
+Example to use:
+```
+import numpy
+import pickle
+vocab2id = pickle.load(open(f'{data_dir}/vocab2id_lemma.pkl','rb'))
+joint_npmi_mat = numpy.load(f"{data_dir}/wiki_lemma_npmi_wsz10_mf100.npy")
+topic = ['apple','pear','banana','fruit']
+from itertools import combinations # avoiding using code from this repo
+print(numpy.mean([joint_npmi_mat[vocab2id[x1],vocab2id[x2]] for x1,x2 in combinations(topic,2) if x1 in vocab2id and x2 in vocab2id]))
+# > 0.37
+```
+
+Original Counts: [Dropbox Link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
 
 count_graph indices are mapped to alphabetically-sorted vocabulary while vocab_count maps are sorted by vocab count.
 
