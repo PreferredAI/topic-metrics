@@ -46,15 +46,24 @@ We recommend setting a low window size (e.g 10) and minimum frequency (e.g. 0) f
 --- 
 ### Releasable Resources
 
-Wiki (~40K Vocabulary) NPMI values: 
-
 Download matrix values in float16, window size 10, select minimum frequency (mf) and use easily.
+
+Wiki (~40K Vocabulary) NPMI values (3.2GB): 
 
 vocab_index [original](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id.pkl), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id_lemma.pkl)
 
 mf=0 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf0.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf0.npy)
 
 mf=100 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf100.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf100.npy)
+
+Wiki (~60K Vocabulary) NPMI values (8 GB) :
+
+vocab_index [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large-vocab2id.pkl), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large-vocab2id_lemma.pkl)
+
+mf=0 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_npmi_wsz10_mf0.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_lemma_npmi_wsz10_mf0.npy)
+
+mf=100 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_npmi_wsz10_mf100.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_lemma_npmi_wsz10_mf100.npy)
+
 
 Example to use:
 ```
@@ -102,17 +111,18 @@ If you had found the resources helpful, we'd appreciate a citation!
     
     @article{10.1162/coli_a_00518,
       author = {Lim, Jia Peng and Lauw, Hady W.},
-      title = "{Aligning Human and Computational Coherence Evaluations}",
+      title = {Aligning Human and Computational Coherence Evaluations},
       journal = {Computational Linguistics},
-      pages = {1-60},
+      volume = {50},
+      number = {3},
+      pages = {893-952},
       year = {2024},
-      month = {08},
-      abstract = "{Automated coherence metrics constitute an efficient and popular way to evaluate topic models. Previous work presents a mixed picture of their presumed correlation with human judgment. This work proposes a novel sampling approach to mining topic representations at a large scale while seeking to mitigate bias from sampling, enabling the investigation of widely used automated coherence metrics via large corpora. Additionally, this article proposes a novel user study design, an amalgamation of different proxy tasks, to derive a finer insight into the human decision-making processes. This design subsumes the purpose of simple rating and outlier-detection user studies. Similar to the sampling approach, the user study conducted is extensive, comprising 40 study participants split into eight different study groups tasked with evaluating their respective set of 100 topic representations. Usually, when substantiating the use of these metrics, human responses are treated as the gold standard. This article further investigates the reliability of human judgment by flipping the comparison and conducting a novel extended analysis of human response at the group and individual level against a generic corpus. The investigation results show a moderate to good correlation between these metrics and human judgment, especially for generic corpora, and derive further insights into the human perception of coherence. Analyzing inter-metric correlations across corpora shows moderate to good correlation among these metrics. As these metrics depend on corpus statistics, this article further investigates the topical differences between corpora, revealing nuances in applications of these metrics.}",
+      month = {09},
       issn = {0891-2017},
       doi = {10.1162/coli_a_00518},
       url = {https://doi.org/10.1162/coli\_a\_00518},
-      eprint = {https://direct.mit.edu/coli/article-pdf/doi/10.1162/coli\_a\_00518/2467767/coli\_a\_00518.pdf},
-  }
+      eprint = {https://direct.mit.edu/coli/article-pdf/50/3/893/2471052/coli\_a\_00518.pdf},
+}
 
 
 
