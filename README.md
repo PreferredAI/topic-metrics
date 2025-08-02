@@ -4,6 +4,9 @@
 Accompanying code that made mining and evaluating **millions** of topic representations possible. 
 For larger corpora, it is probably more efficient to compute counts once.
 
+**Only using NPMI: see downloadables and snippet below.**
+
+**Calculating from scratch:**
 Most of the codebase was refactored and lightly tested on python 3.10 (in theory it should work on >=3.6).
 Some functions were benchmarked for speed, using AMD EPYC 7502 @ 2.50GHz, using large Wikipedia graphs:
   1. 2 minutes to calculate 40K Wikipedia NPMI graphs from count graphs (see tutorial)
@@ -31,12 +34,6 @@ Speed: some attempts at computation efficiency.
 </ol> 
 
 ---
-### To-do
-<ol>
-  <li>Some convenience functions</li>
-</ol> 
-
----
 ### To install
 
     pip install git+https://github.com/PreferredAI/topic-metrics.git
@@ -48,7 +45,39 @@ We recommend setting a low window size (e.g 10) and minimum frequency (e.g. 0) f
 
 --- 
 ### Releasable Resources
-[Dropbox Link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
+
+Download matrix values in float16, window size 10, select minimum frequency (mf) and use easily.
+
+Wiki (~40K Vocabulary) NPMI values (3.2GB): 
+
+vocab_index [original](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id.pkl), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id_lemma.pkl)
+
+mf=0 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf0.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf0.npy)
+
+mf=100 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf100.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf100.npy)
+
+Wiki (~60K Vocabulary) NPMI values (8 GB) :
+
+vocab_index [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large-vocab2id.pkl), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large-vocab2id_lemma.pkl)
+
+mf=0 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_npmi_wsz10_mf0.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_lemma_npmi_wsz10_mf0.npy)
+
+mf=100 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_npmi_wsz10_mf100.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_lemma_npmi_wsz10_mf100.npy)
+
+
+Example to use:
+```
+import numpy
+import pickle
+vocab2id = pickle.load(open(f'{data_dir}/vocab2id_lemma.pkl','rb'))
+joint_npmi_mat = numpy.load(f"{data_dir}/wiki_lemma_npmi_wsz10_mf100.npy")
+topic = ['apple','pear','banana','fruit']
+from itertools import combinations # avoiding using code from this repo
+print(numpy.mean([joint_npmi_mat[vocab2id[x1],vocab2id[x2]] for x1,x2 in combinations(topic,2) if x1 in vocab2id and x2 in vocab2id]))
+# > 0.37
+```
+
+Original Counts: [Dropbox Link](https://www.dropbox.com/scl/fo/be5r4y9g76hlxnfvd4bqg/h?dl=0&rlkey=bbnnnxe9w8h77ln8vv7pfc8lx)
 
 count_graph indices are mapped to alphabetically-sorted vocabulary while vocab_count maps are sorted by vocab count.
 
@@ -78,5 +107,23 @@ If you had found the resources helpful, we'd appreciate a citation!
         publisher = "Association for Computational Linguistics",
         url = "https://aclanthology.org/2023.acl-long.776",
         pages = "13874--13898",
-        abstract = "Automated coherence metrics constitute an important and popular way to evaluate topic models. Previous works present a mixed picture of their presumed correlation with human judgement. In this paper, we conduct a large-scale correlation analysis of coherence metrics. We propose a novel sampling approach to mine topics for the purpose of metric evaluation, and conduct the analysis via three large corpora showing that certain automated coherence metrics are correlated. Moreover, we extend the analysis to measure topical differences between corpora. Lastly, we examine the reliability of human judgement by conducting an extensive user study, which is designed as an amalgamation of different proxy tasks to derive a finer insight into the human decision-making processes. Our findings reveal some correlation between automated coherence metrics and human judgement, especially for generic corpora.",
     }
+    
+    @article{10.1162/coli_a_00518,
+      author = {Lim, Jia Peng and Lauw, Hady W.},
+      title = {Aligning Human and Computational Coherence Evaluations},
+      journal = {Computational Linguistics},
+      volume = {50},
+      number = {3},
+      pages = {893-952},
+      year = {2024},
+      month = {09},
+      issn = {0891-2017},
+      doi = {10.1162/coli_a_00518},
+      url = {https://doi.org/10.1162/coli\_a\_00518},
+      eprint = {https://direct.mit.edu/coli/article-pdf/50/3/893/2471052/coli\_a\_00518.pdf},
+}
+
+
+
+
