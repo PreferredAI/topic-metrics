@@ -46,24 +46,21 @@ We recommend setting a low window size (e.g 10) and minimum frequency (e.g. 0) f
 --- 
 ### Releasable Resources
 
-Download matrix values in float16, window size 10, select minimum frequency (mf) and use easily.
+Download matrix values in float16, window size 10, select minimum frequency (mf) and use easily. [OneDrive](https://smu-my.sharepoint.com/:f:/g/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Eiqzm3IengtPomQGAIIiaUkBtLhc4UDkBq2u-jO3IRVViw?e=24tZCp)
 
 Wiki (~40K Vocabulary) NPMI values (3.2GB): 
 
-vocab_index [original](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id.pkl), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/vocab2id_lemma.pkl)
+vocab_index [original](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki-vocab2id.pkl?csf=1&download=1), [lemma](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki-vocab2id_lemma.pkl?csf=1&download=1)
 
-mf=0 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf0.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf0.npy)
+mf=0 [original](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki_npmi_wsz10_mf0.npy?csf=1&download=1), [lemma](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki_lemma_npmi_wsz10_mf0.npy?csf=1&download=1)
 
-mf=100 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_npmi_wsz10_mf100.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki_lemma_npmi_wsz10_mf100.npy)
+mf=100 [original](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki_npmi_wsz10_mf100.npy?csf=1&download=1), [lemma](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki_lemma_npmi_wsz10_mf100.npy?csf=1&download=1)
 
 Wiki (~60K Vocabulary) NPMI values (8 GB) :
 
-vocab_index [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large-vocab2id.pkl), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large-vocab2id_lemma.pkl)
+vocab_index [original](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki-large-vocab2id.pkl?csf=1&download=1), [lemma](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki-vocab2id_lemma.pkl?csf=1&download=1)
 
-mf=0 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_npmi_wsz10_mf0.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_lemma_npmi_wsz10_mf0.npy)
-
-mf=100 [original](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_npmi_wsz10_mf100.npy), [lemma](https://static.preferred.ai/jiapeng/npmi_matrices/wiki-large_lemma_npmi_wsz10_mf100.npy)
-
+mf=10 [original](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki-large_npmi_wsz10_mf10.npy?csf=1&download=1), [lemma](https://smu-my.sharepoint.com/:u:/r/personal/jiapeng_lim_2021_phdcs_smu_edu_sg/Documents/wiki_npmi/wiki-large_lemma_npmi_wsz10_mf10.npy?csf=1&download=1)
 
 Example to use:
 ```
